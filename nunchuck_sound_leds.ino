@@ -1,60 +1,51 @@
-/*
- * WiiChuckDemo -- 
- *
- * 2008 Tod E. Kurt, http://thingm.com/
- *
- */
-
+#include <FastLED.h>
 #include <Wire.h>
 #include <math.h>
 #include "nunchuck_funcs.h"
+#define LED_DATA_PIN 6
+#define NUM_LEDS 8
 
-#include <Adafruit_NeoPixel.h>
-#ifdef __AVR__
-  #include <avr/power.h>
-#endif
-
+CRGB strip[NUM_LEDS]; //some memory for LED state.
 int loop_cnt=0;
-
-byte accx,accy,zbut,cbut;
-#define LPIN 6
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, LPIN, NEO_GRB + NEO_KHZ800);
 
 
 void setup()
 {
     Serial.begin(19200);
+
+    //Setup the nunchuck
     nunchuck_setpowerpins();
     nunchuck_init(); // send the initilization handshake
+
+    //Setup the LEDs
+    FastLED.addLeds<NEOPIXEL, LED_DATA_PIN>(strip, NUM_LEDS);
     
-    Serial.print("WiiChuckDemo ready\n");
-    strip.begin();
-    strip.show(); // Initialize all pixels to 'off'
 }
 
-void setAllPix(uint32_t c){
-  for(uint16_t i=0; i<strip.numPixels(); i++) {
-    strip.setPixelColor(i, c);
-    strip.show();
-  }
+void setAllPix(CRGB c){
+  for(uint16_t i=0; i<NUM_LEDS; i++) {
+    strip[i] = c;
+  }//would something like memset be better?  a CRGB isn't just a byte though.
+  FastLED.show();
+  
 }
 
-// Input a value 0 to 255 to get a color value.
-// The colours are a transition r - g - b - back to r.
-uint32_t Wheel(byte WheelPos) {
-  WheelPos = 255 - WheelPos;
-  if(WheelPos < 85) {
-    return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
-  }
-  if(WheelPos < 170) {
-    WheelPos -= 85;
-    return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
-  }
-  WheelPos -= 170;
-  return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
-}
+//// Input a value 0 to 255 to get a color value.
+//// The colours are a transition r - g - b - back to r.
+//uint32_t Wheel(byte WheelPos) {
+//  WheelPos = 255 - WheelPos;
+//  if(WheelPos < 85) {
+//    return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+//  }
+//  if(WheelPos < 170) {
+//    WheelPos -= 85;
+//    return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+//  }
+//  WheelPos -= 170;
+//  return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+//}
 
-uint32_t joyPositionToColor(){
+CRGB nunchuckAsColorPicker(){
   //x and y sit at 128 and have min ~30, max ~225
   int x = nunchuck_joyx();
   int y = nunchuck_joyy();
@@ -63,18 +54,45 @@ uint32_t joyPositionToColor(){
   double adjustedy = y-128;
   //these range from approx -100 to +100
 
-  //convert to polar, don't care about radius, just theta
+  //convert to polar, get theta
   double thetaRadians = atan2(adjustedy, adjustedx) + 3.14159; //tan^-1(y/x)
   double thetaDegrees = thetaRadians * (180/3.1415);
   double scaledDegrees = (255.0/360.0) * thetaDegrees;
+  //working in such a memory constrained environment, it could make sense to declare fewer
+  //doubles here and work inplace?  I'm not pressed for memory yet though.
   byte wheelpos = (byte) scaledDegrees;
 
-  Serial.print("scaledDegrees: ");
-  Serial.print(scaledDegrees);
-  Serial.print("   wheelpos: ");
-  Serial.print(wheelpos);
-  Serial.print("\n");
-  return Wheel(wheelpos);
+  //convert to polar, get radius
+  double r = sqrt( pow(adjustedx,2) + pow(adjustedy,2));
+  byte rad = map((long)r, 0, 100, 0, 255);
+  
+  
+  //accely center 128, min 65, max 180
+  //byte accely = map(nunchuck_accely(), 65, 180, 0, 255);
+  //Serial.println(accely);
+
+  
+  byte h = wheelpos;
+  byte s;
+  byte v;
+
+  //this if statement makes the middle of the joystick white instead of black.
+  if (r < 30){
+    s=0;
+    v=(r*2) + 50;
+  }
+  else {
+    s=255;
+    v=rad;
+  }
+  if (nunchuck_zbutton() != 1){
+    v = 0;
+  }
+  return CHSV(h,s,v);
+  
+
+  
+  return CHSV(wheelpos,255,r);
 
   /***
    * 
@@ -88,20 +106,8 @@ void loop()
 {
     if( loop_cnt > 100 ) { // every 100 msecs get new data
         loop_cnt = 0;
-
         nunchuck_get_data();
-
-        accx  = nunchuck_accelx(); // ranges from approx 70 - 182
-        accy  = nunchuck_accely(); // ranges from approx 65 - 173
-        zbut = nunchuck_zbutton();
-        cbut = nunchuck_cbutton(); 
-            
-        /*Serial.print("accx: "); Serial.print((byte)accx,DEC);
-        Serial.print("\taccy: "); Serial.print((byte)accy,DEC);
-        Serial.print("\tzbut: "); Serial.print((byte)zbut,DEC);
-        Serial.print("\tcbut: "); Serial.println((byte)cbut,DEC);*/
-        //nunchuck_print_data();
-        uint32_t color = joyPositionToColor();
+        CRGB color = nunchuckAsColorPicker();
         setAllPix(color);
     
     }
