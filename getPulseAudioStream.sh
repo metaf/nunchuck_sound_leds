@@ -1,0 +1,1 @@
+parec -d alsa_output.usb-FiiO_DigiHug_USB_Audio-01.analog-stereo.monitor --channels=2 | tee audiocheck.aud
