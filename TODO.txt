@@ -1,0 +1,21 @@
+Get mono stream from pulse monitor source and use that as a pipe input instead.
+
+find a library that'll let me use piped PCM (or whatever raw format) as something to process in realtime
+
+figure out what PCM actually looks like and what you can do with it.
+    -One thing you could do is use python "audiolab" to probably convert numpy arrays to wav files if you need them.
+
+Best libraries for doing filtering/analysis:
+    -pyo for "signal processing chains"
+    -Maybe audiolazy
+    -Fricture for GUI stuff
+    
+    -LibXtract, Yaafe, aubio, LibROSA for feature extraction
+
+        -LibROSA seems really neat,
+        -but aubio seems better for realtime stuff maybe?
+
+Project Organization:
+    -First setup serial link, write different modules to do different visualizers
+        -(maybe toggle visualizers with button push on nunchuck)
+    
